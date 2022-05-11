@@ -31,10 +31,12 @@ logger = logging.getLogger()
 
 #Flask Settings
 app = Flask(__name__)
-try:
-    app.config.from_envvar('APP_CONFIG_FILE')
-except Exception as err:
-    logger.exception("OS Env Config Error:" + str(err))
+# try:
+#     app.config.from_envvar('APP_CONFIG_FILE')
+# except Exception as err:
+#     logger.exception("OS Env Config Error:" + str(err))
+
+app.config.from_prefixed_env()
 
 #restX Settings
 api = Api(app, version='1.0', title='KoreServe Inference Service API',
@@ -45,7 +47,11 @@ ns = api.namespace('', description='REST-API operations')
 #Kserve Settings
 target_namespace = utils.get_default_target_namespace()
 api_version = constants.KSERVE_GROUP + '/' + constants.KSERVE_V1BETA1
-KServe = KServeClient(config_file=app.config['K8S_CONFIG'])
+
+if(os.environ['KSERVE_API_K8S_CONFIG_FILE'] != None):
+    KServe = KServeClient(config_file=os.environ['KSERVE_API_K8S_CONFIG_FILE'])
+else:
+    KServe = KServeClient()
 
 
 
@@ -393,8 +399,8 @@ def parsing_post_data(request_data):
                                  storage_endpoint)
 
     if(storage_credential == None and storage_endpoint == None):
-        model_storage.storage_credential = app.config['DEFAULT_STORAGE_CREDENTIAL']
-        model_storage.storage_endpoint = app.config['DEFAULT_STORAGE_ENDPOINT']
+        model_storage.storage_credential = os.environ['KSERVE_API_DEFAULT_STORAGE_CREDENTIAL']
+        model_storage.storage_endpoint = os.environ['KSERVE_API_DEFAULT_STORAGE_ENDPOINT']
     
     return predictor, transformer, model_storage
 
@@ -481,7 +487,7 @@ def make_spec(predictor, inference_name, transformer):
 
     #make logger spec string
     if(predictor.logger != None):
-        predictor_logger_spec_str = ", logger=V1beta1LoggerSpec(mode=\'" + predictor.logger + "\',url=\'" + app.config['LOGGERURL'] + "\')"
+        predictor_logger_spec_str = ", logger=V1beta1LoggerSpec(mode=\'" + predictor.logger + "\',url=\'" + os.environ['KSERVE_API_LOGGERURL'] + "\')"
     else:
         predictor_logger_spec_str = ""
 
@@ -497,7 +503,7 @@ def make_spec(predictor, inference_name, transformer):
     #make transformer spec string
     if(transformer.image != None):
         if(transformer.logger != None):
-            transformer_logger_spec_str = ", logger=V1beta1LoggerSpec(mode=\'" + transformer.logger + "\',url=\'" + app.config['LOGGERURL'] + "\')"
+            transformer_logger_spec_str = ", logger=V1beta1LoggerSpec(mode=\'" + transformer.logger + "\',url=\'" + os.environ['KSERVE_API_LOGGERURL'] + "\')"
         else:
             transformer_logger_spec_str = ""
 
