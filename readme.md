@@ -72,8 +72,10 @@ http://yourhostname:5000/
 
 
 ## Docker
-
+- 개발환경 로컬 도커 실행 예
+  -e 옵션: 개발환경 env설정
+  -v 옵션: 구동에 필요한 K8S config를 컨테이너 환경으로 복사
 ```
-docker build -t 192.168.88.155/koreserve/kserve-api:v1.0 .
+docker run -e APP_CONFIG_FILE=/app/app/config/development.py -v ~/.kube/config:/.kube/config 192.168.88.155/koreserve/kserve-api:v1.0
 ```
 

@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: koreserve-config
+  namespace: koreserve
+data:
+  MINIO_ENDPOINT: "192.168.88.154:9000"
+  MINIO_S3_CREDENTIAL: "[default] \n AWS_ACCESS_KEY_ID:bWluaW9hZG1pbg== \n AWS_SECRET_ACCESS_KEY:bWluaW9hZG1pbg=="
+  KSERVE_LOGGERURL: http://kafka-broker-ingress.knative-eventing.svc.cluster.local/default/kafka-broker"
+  IMAGE_REGISTRY: "192.168.88.155"
+  ELASTICSEARCH_ENDPOINT: "elasticsearch-master-headless.elk.svc.cluster.local:9200"
+  KAFKA_BROKER_ENDPOINT: "kafka-bootstrap-server.kafka.svc.cluster.local:9092"
+
+---  
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: koreserve-kserve-api
+  namespace: koreserve
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: koreserve-kserve-api
+  template:
+    metadata:
+      labels:
+        app: koreserve-kserve-api
+    spec:
+      containers:
+      - name: koreserve-kserve-api
+        image: 192.168.88.155/koreserve/kserve-api:v1.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+        env:
+        - name: DEFAULT_STORAGE_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+               name: koreserve-config
+               key: MINIO_ENDPOINT
+        - name: DEFAULT_STORAGE_CREDENTIAL
+          valueFrom:
+            configMapKeyRef:
+               name: koreserve-config
+               key: MINIO_S3_CREDENTIAL   
+        - name: LOGGERURL
+          valueFrom:
+            configMapKeyRef:
+               name: koreserve-config
+               key: KSERVE_LOGGERURL    
+        - name: K8S_CONFIG
+          value: ""
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: koreserve-kserve-api
+  namespace: koreserve
+spec:
+  selector:
+    app: koreserve-kserve-api
+  ports:
+    - name: http
+      port: 5000
+      protocol: TCP
+      targetPort: 5000
+  type: NodePort
