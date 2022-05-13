@@ -2,3 +2,5 @@ Dockerfile
 .git
 .gitignore
 .venv
+/transformer-sample
+readme.md

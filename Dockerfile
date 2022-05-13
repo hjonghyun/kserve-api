@@ -6,4 +6,5 @@ RUN chmod +x /app/gunicorn.sh
 RUN pip install -r requirements.txt # Write Flask in this file
 EXPOSE 5000 
 
+ENV PYTHONUNBUFFERED=0
 ENTRYPOINT [ "sh","/app/gunicorn.sh" ]

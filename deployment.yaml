@@ -1,17 +1,41 @@
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kserve-api-sa
+  namespace: koreserve
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: koreserve-sa-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: kserve-api-sa
+  namespace: koreserve
+
+---
+
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: koreserve-config
   namespace: koreserve
 data:
   MINIO_ENDPOINT: "192.168.88.154:9000"
-  MINIO_S3_CREDENTIAL: "[default] \n AWS_ACCESS_KEY_ID:bWluaW9hZG1pbg== \n AWS_SECRET_ACCESS_KEY:bWluaW9hZG1pbg=="
-  KSERVE_LOGGERURL: http://kafka-broker-ingress.knative-eventing.svc.cluster.local/default/kafka-broker"
+  MINIO_ACCESS_ID: "bWluaW9hZG1pbg=="
+  MINIO_ACCESS_KEY: "bWluaW9hZG1pbg=="
+  KSERVE_LOGGERURL: "http://kafka-broker-ingress.knative-eventing.svc.cluster.local/default/kafka-broker"
   IMAGE_REGISTRY: "192.168.88.155"
   ELASTICSEARCH_ENDPOINT: "elasticsearch-master-headless.elk.svc.cluster.local:9200"
   KAFKA_BROKER_ENDPOINT: "kafka-bootstrap-server.kafka.svc.cluster.local:9092"
 
----  
+---
 
 apiVersion: apps/v1
 kind: Deployment
@@ -19,7 +43,6 @@ metadata:
   name: koreserve-kserve-api
   namespace: koreserve
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: koreserve-kserve-api
@@ -35,23 +58,27 @@ spec:
         ports:
         - containerPort: 5000
         env:
-        - name: DEFAULT_STORAGE_ENDPOINT
+        - name: KSERVE_API_DEFAULT_STORAGE_ENDPOINT
           valueFrom:
             configMapKeyRef:
                name: koreserve-config
                key: MINIO_ENDPOINT
-        - name: DEFAULT_STORAGE_CREDENTIAL
+        - name: KSERVE_API_DEFAULT_AWS_ACCESS_KEY_ID
           valueFrom:
             configMapKeyRef:
                name: koreserve-config
-               key: MINIO_S3_CREDENTIAL   
-        - name: LOGGERURL
+               key: MINIO_ACCESS_ID
+        - name: KSERVE_API_DEFAULT_AWS_SECRET_ACCESS_KEY
           valueFrom:
             configMapKeyRef:
                name: koreserve-config
-               key: KSERVE_LOGGERURL    
-        - name: K8S_CONFIG
-          value: ""
+               key: MINIO_ACCESS_KEY
+        - name: KSERVE_API_LOGGERURL
+          valueFrom:
+            configMapKeyRef:
+               name: koreserve-config
+               key: KSERVE_LOGGERURL
+      serviceAccountName: kserve-api-sa
 
 ---
 
