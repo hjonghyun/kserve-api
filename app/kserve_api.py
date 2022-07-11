@@ -77,7 +77,10 @@ predictor_modelspec_model = api.model('ModelSpec',{
 predictor_model =  api.model('Predictor',{
     "modelspec": fields.Nested(predictor_modelspec_model),
     "logger": fields.String(enum=['all', 'request', 'response'], example="all"),
-    "resource": fields.Nested(predictor_resource_model)
+    "resource": fields.Nested(predictor_resource_model),
+    "min_replicas": fields.Integer(example=3),
+    "max_replicas": fields.Integer(example=1),
+    "canary_traffic_percent": fields.Integer(required=False, example="100"),
 })
 
 transformer_model =  api.model('Transformer',{
@@ -261,6 +264,10 @@ class Predictor:
     resource_limits_gpu        : str
     resource_requests_cpu      : str
     resource_requests_memory   : str
+    max_replicas               : int
+    min_replicas               : int
+    canary_traffic_percent     : int
+
 
 @dataclass
 class Transformer:
@@ -311,7 +318,7 @@ def create_inference(predictor, inference_service, transformer, model_storage):
 
 def replace_inference(predictor, inference_service, transformer, model_storage):
     try:
-        if(make_credential(model_storage, predictor, inference_service.namespace)):
+        if(make_credential(model_storage, predictor, inference_service)):
             isvc = make_spec(predictor, inference_service, transformer)
         else:
             return False
@@ -319,7 +326,7 @@ def replace_inference(predictor, inference_service, transformer, model_storage):
         print(isvc)
         #
         KServe.replace(inference_service.inference_name, isvc, inference_service.namespace)
-        KServe.wait_isvc_ready(inference_service.inference_name, namespace=inference_service.target_namespace, watch=True, timeout_seconds=600)
+        KServe.wait_isvc_ready(inference_service.inference_name, namespace=inference_service.namespace, watch=True, timeout_seconds=600)
         
         time.sleep(5)
         inference_check = (get_inference(inference_service.inference_name, inference_service.namespace))
@@ -333,7 +340,6 @@ def replace_inference(predictor, inference_service, transformer, model_storage):
     except Exception as err:
         logger.exception("replace_inference exception:" + str(err)) 
         return False 
-
 
 
 def get_inference(inference_name, target_namespace):
@@ -393,8 +399,11 @@ def parsing_post_data(request_data):
     if(request_data.get('predictor') != None):
         model_framwwork  = request_data.get('predictor').get('modelspec').get('modelframwwork')
         runtime_version  = request_data.get('predictor').get('modelspec').get('runtime_version')
-        storage_uri      = request_data.get('predictor').get('modelspec').get('storageuri')
+        storage_uri      = "s3://" + request_data.get('predictor').get('modelspec').get('storageuri')
+        min_replicas     = request_data.get('predictor').get('min_replicas')
+        max_replicas     = request_data.get('predictor').get('max_replicas')
         logger = request_data.get('predictor').get('logger')
+        canary_traffic_percent = request_data.get('predictor').get('canary_traffic_percent')
 
         if(request_data.get('predictor').get('resource') != None):
             if(request_data.get('predictor').get('resource').get('limits') != None):
@@ -414,7 +423,11 @@ def parsing_post_data(request_data):
                               resource_limits_memory, 
                               resource_limits_gpu, 
                               resource_requests_cpu, 
-                              resource_requests_memory)
+                              resource_requests_memory,
+                              min_replicas,
+                              max_replicas,
+                              canary_traffic_percent      
+                )
     else:
          predictor = None                          
     
@@ -455,9 +468,8 @@ def parsing_post_data(request_data):
 
 
 def make_credential(model_storage, predictor, inference_service):
-    print("areyouok0")
     #make credential & spec string
-    if(predictor.storage_uri.find("s3:") >= 0):
+    # if(predictor.storage_uri.find("s3:") >= 0):
         with open('/tmp/credential.txt', 'w') as credential_file:
             credential_file.write(model_storage.storage_credential)
 
@@ -465,8 +477,8 @@ def make_credential(model_storage, predictor, inference_service):
         
         credential_file.close()
         return True
-    else:
-        return True
+    # else:
+        # return True
 
 
 def make_spec(predictor, inference_service, transformer):
@@ -538,17 +550,39 @@ def make_spec(predictor, inference_service, transformer):
     else:
         runtime_verion_spec_str = ""
 
+    #make max replicas spec string
+    if(predictor.max_replicas != None):
+        max_replicas_spec_str = ", max_replicas=" + str(predictor.max_replicas)
+    else:
+        max_replicas_spec_str = ""
+
+    #make min replicas spec string
+    if(predictor.max_replicas != None):
+        min_replicas_spec_str = ", min_replicas=" + str(predictor.min_replicas)
+    else:
+        min_replicas_spec_str = ""
+
     #make logger spec string
     if(predictor.logger != None):
         predictor_logger_spec_str = ", logger=V1beta1LoggerSpec(mode=\'" + predictor.logger + "\',url=\'" +KSERVE_API_LOGGERURL + "\')"
     else:
         predictor_logger_spec_str = ""
 
+    #make canary spec string
+    if(predictor.logger != None):
+        predictor_canary_spec_str = ", canary_traffic_percent=" + str(predictor.canary_traffic_percent)
+    else:
+        predictor_canary_spec_str = ""
+
+
+
     predictor_spec_str = "predictor=V1beta1PredictorSpec(" + "service_account_name=\'" + inference_service.inference_name + "\', " + model_framwwork_spec_str + "(storage_uri='" + predictor.storage_uri + "'" + \
                                                              predictor_resource_spec_str + \
                                                              runtime_verion_spec_str + \
                                                            ")"  + \
-                                                          predictor_logger_spec_str +")"
+                                                          predictor_logger_spec_str + \
+                                                          min_replicas_spec_str + max_replicas_spec_str + \
+                                                          predictor_canary_spec_str + ")"
 
 
     #make transformer spec string
