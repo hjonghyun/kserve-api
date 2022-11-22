@@ -25,7 +25,7 @@ export KSERVE_API_DEFAULT_AWS_ACCESS_KEY_ID=bWluaW9hZG1pbg==
 export KSERVE_API_DEFAULT_AWS_SECRET_ACCESS_KEY=bWluaW9hZG1pbg==
 
 #모델이 저장된 storage 정보 기본값으로 내부 스토리지(minio) 설정됨          
-export KSERVE_API_DEFAULT_STORAGE_ENDPOINT="192.168.88.154:9000"   
+export KSERVE_API_DEFAULT_STORAGE_ENDPOINT="192.168.88.151:30009"   
 
 #inference service의 logger정보, Request/Response 정보 이벤트를 전달할 서비스위치                                                                                 
 export KSERVE_API_LOGGERURL="http://kafka-broker-ingress.knative-eventing.svc.cluster.local/default/kafka-broker"    

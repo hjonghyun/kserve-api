@@ -78,7 +78,7 @@ predictor_model =  api.model('Predictor',{
     "modelspec": fields.Nested(predictor_modelspec_model),
     "logger": fields.String(enum=['all', 'request', 'response'], example="all"),
     "resource": fields.Nested(predictor_resource_model),
-    "min_replicas": fields.Integer(example=3),
+    "min_replicas": fields.Integer(example=1),
     "max_replicas": fields.Integer(example=1),
     "canary_traffic_percent": fields.Integer(required=False, example="100"),
 })
@@ -389,8 +389,8 @@ def parsing_post_data(request_data):
     resource_requests_memory = None
 
     #Autoscaling할 동시접속 타켓 카운트 초기값 설정
-    if(autoscaling_target_count == None):
-        autoscaling_target_count = 10
+    # if(autoscaling_target_count == None):
+    #     autoscaling_target_count = 10
 
     inference_service = InferenceService(namespace,
                                         inference_name,
@@ -648,10 +648,12 @@ def make_spec(predictor, inference_service, transformer):
     #default_model_spec = "V1beta1InferenceServiceSpec(predictor=V1beta1PredictorSpec(" + model_framwwork_spec_str + "(storage_uri='" + storage_uri + "'" + ")" + logger_spec_str + "))"
     default_model_spec = "V1beta1InferenceServiceSpec(" + predictor_spec_str + transformer_spec_str + ")"
     print(default_model_spec)
+
     #make autoscaling spec string
-    #동시요청수가 10을 넘으면 확장
-    autoscaling_spec_str = "{\'autoscaling.knative.dev/target\':\'" + str(inference_service.autoscaling_target_count) + "\'}"
-     
+    if(inference_service.autoscaling_target_count != None):
+        autoscaling_spec_str = "{\'autoscaling.knative.dev/target\':\'" + str(inference_service.autoscaling_target_count) + "\'}"
+    else:
+        autoscaling_spec_str = "{}"
     #make iference service spec
     isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
                                   kind=constants.KSERVE_KIND,
